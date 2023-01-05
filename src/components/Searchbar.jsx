@@ -1,43 +1,39 @@
-import { Component } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 
-export default class Searchbar extends Component {
-  static propTypes = {
-    onSearch: PropTypes.func.isRequired,
+export default function Searchbar({ onSearch }) {
+  const [value, setValue] = useState('');
+
+  const hendleFilter = event => {
+    setValue(event.target.value);
   };
 
-  state = {
-    value: '',
-  };
-
-  hendleFilter = event => {
-    this.setState({ value: event.target.value });
-  };
-
-  handleSubmit = event => {
+  const handleSubmit = event => {
     event.preventDefault();
 
-    this.props.onSearch(this.state.value);
-    this.setState({ value: '' });
+    onSearch(value);
+    setValue('');
   };
 
-  render() {
-    return (
-      <header className="Searchbar" onSubmit={this.handleSubmit}>
-        <form className="SearchForm">
-          <button type="submit" className="SearchForm-button">
-            <span className="SearchForm-button-label">Search</span>
-          </button>
+  return (
+    <header className="Searchbar" onSubmit={handleSubmit}>
+      <form className="SearchForm">
+        <button type="submit" className="SearchForm-button">
+          <span className="SearchForm-button-label">Search</span>
+        </button>
 
-          <input
-            className="SearchForm-input"
-            type="text"
-            placeholder="Search images and photos"
-            onChange={this.hendleFilter}
-            value={this.state.value}
-          />
-        </form>
-      </header>
-    );
-  }
+        <input
+          className="SearchForm-input"
+          type="text"
+          placeholder="Search images and photos"
+          onChange={hendleFilter}
+          value={value}
+        />
+      </form>
+    </header>
+  );
 }
+
+Searchbar.propTypes = {
+  onSearch: PropTypes.func.isRequired,
+};
