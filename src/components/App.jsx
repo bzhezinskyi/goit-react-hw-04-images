@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 
 import { getPixabay } from 'services/pixabay.service';
 import Searchbar from './Searchbar';
@@ -8,26 +8,28 @@ import Loader from './Loader';
 import Button from './Button';
 import Modal from './Modal';
 
-export default class App extends Component {
-  state = {
-    modal: null,
-    pixabay: [],
-    status: STATUS.idle, // 'idle', 'success', 'error'
-    loading: false,
-    search: '',
-    page: 1,
-  };
+export default function App() {
+  const [modal, setModal] = useState(null);
+  const [pixabay, setPixabay] = useState([]);
+  const [status, setStatus] = useState(STATUS.idle); // 'idle', 'success', 'error'
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [firstSearch, setFirstSearch] = useState(true);
+  const [loadMore, setLoadMore] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  async componentDidUpdate(_, prevState) {
-    if (
-      prevState.search !== this.state.search ||
-      prevState.page !== this.state.page
-    ) {
-      this.setState({ loading: true });
+  useEffect(() => {
+    if (firstSearch) {
+      return;
+    }
+    const createPixabay = async () => {
+      setLoading(true);
+
       try {
         const data = await getPixabay({
-          page: this.state.page,
-          q: this.state.search,
+          page,
+          q: search,
         });
         const newData = data.hits.map(el => ({
           id: el.id,
@@ -35,74 +37,69 @@ export default class App extends Component {
           webformatURL: el.webformatURL,
           tags: el.tags,
         }));
-        if (newData.length !== 0) {
-          this.setState(prevState => ({
-            pixabay: [...prevState.pixabay, ...newData],
-            status: STATUS.success,
-            loading: false,
-          }));
+
+        if (data.totalHits === data.hits.length) {
+          setLoadMore(false);
         } else {
-          this.setState({
-            loading: false,
-            status: STATUS.error,
-            search: 'Oops!!! Non-existent value.',
-          });
+          setLoadMore(true);
+        }
+
+        if (newData.length !== 0) {
+          setPixabay(prevPixabay => [...prevPixabay, ...newData]);
+          setStatus(STATUS.success);
+        } else {
+          setErrorMessage('Ooops!!! Non-existent value: ' + search);
+          setStatus(STATUS.error);
         }
       } catch (error) {
-        console.log(error);
-        this.setState({
-          status: STATUS.error,
-          search: error.message,
-          loading: false,
-        });
+        setErrorMessage(error.message);
+        setStatus(STATUS.error);
+      } finally {
+        setLoading(false);
       }
-    }
-  }
+    };
+    createPixabay();
+  }, [page, search, firstSearch]);
 
-  handleSearch = async search => {
-    if (search === this.state.search) {
+  const handleSearch = message => {
+    if (message === search) {
       return;
     }
     document.body.scrollTop = 0;
     document.documentElement.scrollTop = 0;
-    await this.setState({ search, status: STATUS.idle, page: 1, pixabay: [] });
+    setSearch(message);
+    setStatus(STATUS.idle);
+    setPage(1);
+    setPixabay([]);
+    setFirstSearch(false);
   };
 
-  handleLoadeMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const handleLoadeMore = () => {
+    setPage(page + 1);
   };
 
-  handleOpenModal = (largeImageURL, tags) => {
-    this.setState({ modal: { largeImageURL, tags } });
+  const handleOpenModal = (largeImageURL, tags) => {
+    setModal({ largeImageURL, tags });
   };
 
-  handleCloseModal = () => {
-    this.setState({ modal: null });
+  const handleCloseModal = () => {
+    setModal(null);
   };
 
-  render() {
-    const { status, pixabay, search, modal, loading } = this.state;
-    return (
-      <div className="App">
-        <Searchbar onSearch={this.handleSearch} />
+  return (
+    <div className="App">
+      <Searchbar onSearch={handleSearch} />
 
-        {status === STATUS.error && <h2>{search}</h2>}
-        {status === STATUS.success && (
-          <>
-            <ImageGallery
-              GalleryList={pixabay}
-              handleClick={this.handleOpenModal}
-            />
-            {!loading && <Button onClick={this.handleLoadeMore} />}
-          </>
-        )}
-        {loading && <Loader />}
-        {modal && (
-          <Modal onModal={modal} onCloseModal={this.handleCloseModal} />
-        )}
-      </div>
-    );
-  }
+      {status === STATUS.error && <h2>{errorMessage}</h2>}
+      {status === STATUS.success && (
+        <>
+          <ImageGallery GalleryList={pixabay} handleClick={handleOpenModal} />
+          {!loading && loadMore && <Button onClick={handleLoadeMore} />}
+          {!loading && !loadMore && <h2>The End</h2>}
+        </>
+      )}
+      {loading && <Loader />}
+      {modal && <Modal onModal={modal} onCloseModal={handleCloseModal} />}
+    </div>
+  );
 }
